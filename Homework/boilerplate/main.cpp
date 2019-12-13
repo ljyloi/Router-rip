@@ -225,7 +225,7 @@ int main(int argc, char *argv[]) {
     // TODO: Handle rip multicast address(224.0.0.9)?
     //处理组播
     bool dst_is_com = dst_addr == com_addr;
-
+    printf("%d %d %d %d\n", dst_is_com, dst_is_me, dst_addr, com_addr);
 
     if (dst_is_me || dst_is_com) {
       // 3a.1
