@@ -229,6 +229,7 @@ int main(int argc, char *argv[]) {
 
     if (dst_is_me || dst_is_com) {
       // 3a.1
+      printf("fuck!\n");
       RipPacket rip;
       // check and validate
       if (disassemble(packet, res, &rip)) {
