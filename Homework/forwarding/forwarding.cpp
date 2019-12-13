@@ -12,5 +12,30 @@
  */
 bool forward(uint8_t *packet, size_t len) {
   // TODO:
-  return false;
+  int sum = 0, length;
+  length = (packet[0] & 0xf) * 4;
+  uint16_t checksum = (((int)packet[10]) << 8) + (int)packet[11];
+  packet[10] = 0;
+  packet[11] = 0;
+  for (int i = 0; i < length; i += 2) {
+      sum += ((int)packet[i] << 8) + (int)packet[i + 1];
+      while (sum > 0xffff) {
+          sum = (sum & 0xffff) + (sum >> 16);
+      }
+  }
+  sum = 0xffff - sum;
+  if (sum != checksum) return false;
+  packet[8]--;
+  if (!packet[8]) return false;
+  sum = 0;
+  for (int i = 0; i < length; i += 2) {
+      sum += ((int)packet[i] << 8) + (int)packet[i + 1];
+      while (sum > 0xffff) {
+          sum = (sum & 0xffff) + (sum >> 16);
+      }
+  }
+  sum = 0xffff - sum;
+  packet[10] = sum >> 8;
+  packet[11] = sum & 0xff;
+  return true;
 }

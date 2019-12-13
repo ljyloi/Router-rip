@@ -1,7 +1,7 @@
 #include "router.h"
 #include <stdint.h>
 #include <stdlib.h>
-
+#include <list>
 /*
   RoutingTable Entry 的定义如下：
   typedef struct {
@@ -26,8 +26,33 @@
  * 插入时如果已经存在一条 addr 和 len 都相同的表项，则替换掉原有的。
  * 删除时按照 addr 和 len 匹配。
  */
+int cnt;
+std::list<RoutingTableEntry> routeList;
 void update(bool insert, RoutingTableEntry entry) {
-  // TODO:
+  for (std::list<RoutingTableEntry>::iterator it = routeList.begin(); it != routeList.end(); it++) {
+    if (it->addr == entry.addr && it->len == entry.len) {
+      if (insert) {
+        it->if_index = entry.if_index;
+        it->nexthop = entry.nexthop;
+        it->metric = entry.metric;
+        return;
+      }
+      routeList.erase(it);
+      return;
+      
+    }
+  }  // TODO:
+  if (insert)
+    routeList.push_back(entry);
+}
+
+
+int match(uint32_t a, uint32_t b) {
+  for (int i = 1; i <= 4; i++) {
+    if ((a & (0xff << (8 * i - 8))) != (b & (0xff << (8 * i - 8))))
+      return i - 1;
+  }
+  return 4;
 }
 
 /**
@@ -41,5 +66,37 @@ bool query(uint32_t addr, uint32_t *nexthop, uint32_t *if_index) {
   // TODO:
   *nexthop = 0;
   *if_index = 0;
-  return false;
+  RoutingTableEntry *best;
+  int length = 0;
+  for (std::list<RoutingTableEntry>::iterator it = routeList.begin(); it != routeList.end(); it++) {
+    int l = match(it->addr, addr);
+    if (l > length && it->len <= l * 8) {
+      length = l;
+      *nexthop = it->nexthop;
+      *if_index = it->if_index;
+    }
+  }  // TODO:i
+  if (length == 0)
+    return false;
+  return true;
+}
+
+bool query2(uint32_t addr, uint32_t *nexthop, uint32_t *if_index, uint32_t *metric) {
+  // TODO:
+  *nexthop = 0;
+  *if_index = 0;
+  RoutingTableEntry *best;
+  int length = 0;
+  for (std::list<RoutingTableEntry>::iterator it = routeList.begin(); it != routeList.end(); it++) {
+    int l = match(it->addr, addr);
+    if (l > length && it->len <= l * 8) {
+      length = l;
+      *nexthop = it->nexthop;
+      *if_index = it->if_index;
+      *metric = it->metric;
+    }
+  }  // TODO:i
+  if (length == 0)
+    return false;
+  return true;
 }

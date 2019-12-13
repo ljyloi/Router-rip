@@ -1,7 +1,7 @@
 #include "rip.h"
 #include <stdint.h>
 #include <stdlib.h>
-
+#include <cstdio>
 /*
   在头文件 rip.h 中定义了如下的结构体：
   #define RIP_MAX_ENTRY 25
@@ -43,9 +43,65 @@
  * Metric 转换成小端序后是否在 [1,16] 的区间内，
  * Mask 的二进制是不是连续的 1 与连续的 0 组成等等。
  */
-bool disassemble(const uint8_t *packet, uint32_t len, RipPacket *output) {
-  // TODO:
+uint32_t num4(uint8_t a, uint8_t b, uint8_t c, uint8_t d) {
+  return ((uint32_t)a << 24) + ((uint32_t)b << 16) + ((uint32_t)c << 8) + d;
+}
+
+uint16_t num2(uint8_t a, uint8_t b) {
+  return ((uint16_t)a << 8) + b;
+}
+
+bool illegal(uint32_t a) {
+  int no = 0;
+  for (int i = 31; i >= 0; i--) {
+    if ((a >> i) & 1) {
+      if (no) return true;
+    }
+    else no = 1;
+  }
   return false;
+}
+
+bool disassemble(const uint8_t *packet, uint32_t len, RipPacket *output) {
+  int totalLength = num2(packet[2], packet[3]);
+  if (totalLength > len) return false;
+  // TODO:
+  int headLength = (packet[0] & 0xf) * 4;
+  int command = packet[headLength + 8];
+  if (command != 1 && command != 2) return false;
+  int familyShouldBe = command == 1 ? 0 : 2;
+  int version = packet[headLength + 9];
+  if (version != 2) return false;
+  int zero = (packet[headLength + 10] << 8) + packet[headLength + 11];
+  if (zero != 0) return false;
+  for (int i = headLength + 12; i < totalLength; i += 20) {
+    int family = (packet[i] << 8) + packet[i + 1];
+    if (family != familyShouldBe) return false;
+    int tag = (packet[i + 2] << 8) + packet[i + 3];
+    if (tag != 0) return false;
+    
+    uint32_t address = num4(packet[i + 4], packet[i + 5], packet[i + 6], packet[i + 7]);
+    uint32_t mask = num4(packet[i + 8], packet[i + 9], packet[i + 10], packet[i + 11]);
+    uint32_t nextHop = num4(packet[i + 12], packet[i + 13], packet[i + 14], packet[i + 15]);
+    uint32_t metric = num4(packet[i + 16], packet[i + 17], packet[i + 18], packet[i + 19]);
+    if (illegal(mask)) return false;
+    if (!(metric >= 1 && metric <= 16)) return false;
+  }
+  output->command = command;
+  output->numEntries = (totalLength - headLength - 4) / 20;
+  int cnt = 0;
+  for (int i = headLength + 12; i < totalLength; i += 20) {
+    uint32_t address = num4(packet[i + 7], packet[i + 6], packet[i + 5], packet[i + 4]);
+    uint32_t mask = num4(packet[i + 11], packet[i + 10], packet[i + 9], packet[i + 8]);
+    uint32_t nextHop = num4(packet[i + 15], packet[i + 14], packet[i + 13], packet[i + 12]);
+    uint32_t metric = num4(packet[i + 19], packet[i + 18], packet[i + 17], packet[i + 16]);
+    output->entries[cnt].addr = address;
+    output->entries[cnt].mask = mask;
+    output->entries[cnt].nexthop = nextHop;
+    output->entries[cnt].metric = metric;
+    cnt++;
+  }
+  return true;
 }
 
 /**
@@ -60,5 +116,22 @@ bool disassemble(const uint8_t *packet, uint32_t len, RipPacket *output) {
  */
 uint32_t assemble(const RipPacket *rip, uint8_t *buffer) {
   // TODO:
-  return 0;
+  buffer[0] = rip->command;
+  buffer[1] = 0x0002;
+  buffer[2] = buffer[3] = 0;
+  for (int i = 0; i < rip->numEntries; i++) {
+    int head = i * 20 + 4;
+    buffer[head] = 0;
+    buffer[head + 1] = buffer[0] == 1 ? 0 : 2;
+    buffer[head + 2]  = buffer[head + 3] = 0;
+    uint32_t addr = rip->entries[i].addr;
+    uint32_t mask = rip->entries[i].mask;
+    uint32_t hop = rip->entries[i].nexthop;
+    uint32_t metric = rip->entries[i].metric;
+    buffer[head + 7] = addr >> 24; buffer[head + 6] = addr >> 16 & 0xff; buffer[head + 5] = addr >> 8 & 0xff; buffer[head + 4] = addr & 0xff;
+    buffer[head + 11] = mask >> 24; buffer[head + 10] = mask >> 16 & 0xff; buffer[head + 9] = mask >> 8 & 0xff; buffer[head + 8] = mask & 0xff;
+    buffer[head + 15] = hop >> 24; buffer[head + 14] = hop >> 16 & 0xff; buffer[head + 13] = hop >> 8 & 0xff; buffer[head + 12] = hop & 0xff;
+    buffer[head + 19] = metric >> 24; buffer[head + 18] = metric >> 16 & 0xff; buffer[head + 17] = metric >> 8 & 0xff; buffer[head + 16] = metric & 0xff;
+  }
+  return rip->numEntries * 20 + 4;
 }
