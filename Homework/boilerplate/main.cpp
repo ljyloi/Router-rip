@@ -32,7 +32,7 @@ void findRoute(RipPacket *rip, uint32_t addr) {
   rip->numEntries = 0;
   int cnt = 0;
   for (std::list<RoutingTableEntry>::iterator it = routeList.begin(); it != routeList.end(); it++) {
-    if ((it->addr & ((1 << (uint64_t)it->len) - 1)) == (addr & ((1 << (uint64_t)it->len) - 1))) {
+    if ((it->addr & ((1 << (uint64_t)it->len) - 1)) != (addr & ((1 << (uint64_t)it->len) - 1))) {
       rip->entries[cnt].addr = it->addr;
       rip->entries[cnt].mask = (1 << (uint64_t)it->len) - 1;
       rip->entries[cnt].metric = it->metric;
@@ -47,7 +47,7 @@ void sendAllRoute(RipPacket *rip, uint32_t addr) {
   rip->numEntries = 0;
   int cnt = 0;
   for (std::list<RoutingTableEntry>::iterator it = routeList.begin(); it != routeList.end(); it++) {
-    if ((it->addr & ((1 << (uint64_t)it->len) - 1)) == (addr & ((1 << (uint64_t)it->len) - 1)) && it->nexthop != addr) {
+    if ((it->addr & ((1 << (uint64_t)it->len) - 1)) != (addr & ((1 << (uint64_t)it->len) - 1)) && it->nexthop != addr) {
       rip->entries[cnt].addr = it->addr;
       rip->entries[cnt].mask = (1 << (uint64_t)it->len) - 1;
       rip->entries[cnt].metric = it->metric;
@@ -157,7 +157,7 @@ int main(int argc, char *argv[]) {
   uint64_t last_time = 0;
   while (1) {
     uint64_t time = HAL_GetTicks();
-    if (time > last_time + 30 * 1000) {
+    if (time > last_time + 5 * 1000) {
       // What to do?
       // send complete routing table to every interface
       //将自身路由表发给每一个接口
@@ -233,6 +233,7 @@ int main(int argc, char *argv[]) {
       // check and validate
       if (disassemble(packet, res, &rip)) {
         if (rip.command == 1) { //说明是request请求
+          printf("request:\n");
           // 3a.3 request, ref. RFC2453 3.9.1
           // only need to respond to whole table requests in the lab
           //返回lab中的所有表请求
@@ -253,6 +254,7 @@ int main(int argc, char *argv[]) {
           // 3a.2 response, ref. RFC2453 3.9.2
           // 发出的request得到回复，对路由表进行更新
           // update routing table
+          printf("response\n");
           int cnt = 0;
           RipPacket resp;
           resp.command = 2;
