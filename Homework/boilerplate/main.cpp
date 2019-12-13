@@ -108,12 +108,11 @@ void sendMyRoute() {
 }
 
 uint32_t getSrc(uint8_t *packet) {
-  return packet[15] << 24 + packet[14] << 16 + packet[13] << 8 + packet[12];
+  return (packet[15] << 24) + (packet[14] << 16) + (packet[13] << 8) + packet[12];
 }
 
 uint32_t getDst(uint8_t *packet) {
-  printf("%d %d %d %d\n", packet[19], packet[18], packet[17], packet[16]);
-  return packet[19] << 24 + packet[18] << 16 + packet[17] << 8 + packet[16];
+  return (packet[19] << 24) + (packet[18] << 16) + (packet[17] << 8) + packet[16];
 }
 
 uint32_t getLen(uint32_t mask) {
