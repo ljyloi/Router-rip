@@ -112,6 +112,7 @@ uint32_t getSrc(uint8_t *packet) {
 }
 
 uint32_t getDst(uint8_t *packet) {
+  printf("%d %d %d %d\n", packet[19], packet[18], packet[17], packet[16]);
   return packet[19] << 24 + packet[18] << 16 + packet[17] << 8 + packet[16];
 }
 
@@ -224,8 +225,8 @@ int main(int argc, char *argv[]) {
 
     // TODO: Handle rip multicast address(224.0.0.9)?
     //处理组播
-    bool dst_is_com = dst_addr == com_addr;
-    printf("%d %d %d %d\n", dst_is_com, dst_is_me, dst_addr, com_addr);
+    bool dst_is_com = (dst_addr == com_addr);
+    printf("%d %d %d %d %d\n", dst_is_com, dst_is_me, src_addr, dst_addr, com_addr);
 
     if (dst_is_me || dst_is_com) {
       // 3a.1
