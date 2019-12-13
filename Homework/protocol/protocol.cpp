@@ -131,7 +131,7 @@ uint32_t assemble(const RipPacket *rip, uint8_t *buffer) {
     buffer[head + 7] = addr >> 24; buffer[head + 6] = addr >> 16 & 0xff; buffer[head + 5] = addr >> 8 & 0xff; buffer[head + 4] = addr & 0xff;
     buffer[head + 11] = mask >> 24; buffer[head + 10] = mask >> 16 & 0xff; buffer[head + 9] = mask >> 8 & 0xff; buffer[head + 8] = mask & 0xff;
     buffer[head + 15] = hop >> 24; buffer[head + 14] = hop >> 16 & 0xff; buffer[head + 13] = hop >> 8 & 0xff; buffer[head + 12] = hop & 0xff;
-    buffer[head + 16] = metric >> 24; buffer[head + 17] = metric >> 16 & 0xff; buffer[head + 18] = metric >> 8 & 0xff; buffer[head + 19] = metric & 0xff;
+    buffer[head + 19] = metric >> 24; buffer[head + 18] = metric >> 16 & 0xff; buffer[head + 17] = metric >> 8 & 0xff; buffer[head + 16] = metric & 0xff;
   }
   return rip->numEntries * 20 + 4;
 }

@@ -32,7 +32,7 @@ void findRoute(RipPacket *rip, uint32_t addr) {
   rip->numEntries = 0;
   int cnt = 0;
   for (std::list<RoutingTableEntry>::iterator it = routeList.begin(); it != routeList.end(); it++) {
-    if ((it->addr & (1 << it->len)) == (addr & (1 << it->len))) {
+    if ((it->addr & ((1 << (uint64_t)it->len) - 1)) == (addr & ((1 << (uint64_t)it->len) - 1))) {
       rip->entries[cnt].addr = it->addr;
       rip->entries[cnt].mask = (1 << (uint64_t)it->len) - 1;
       rip->entries[cnt].metric = it->metric;
@@ -47,7 +47,7 @@ void sendAllRoute(RipPacket *rip, uint32_t addr) {
   rip->numEntries = 0;
   int cnt = 0;
   for (std::list<RoutingTableEntry>::iterator it = routeList.begin(); it != routeList.end(); it++) {
-    if ((it->addr & (1 << it->len)) == (addr & (1 << it->len) && it->nexthop != addr)) {
+    if ((it->addr & ((1 << (uint64_t)it->len) - 1)) == (addr & ((1 << (uint64_t)it->len) - 1)) && it->nexthop != addr) {
       rip->entries[cnt].addr = it->addr;
       rip->entries[cnt].mask = (1 << (uint64_t)it->len) - 1;
       rip->entries[cnt].metric = it->metric;
@@ -124,6 +124,9 @@ uint32_t getLen(uint32_t mask) {
   return ans;
 }
 
+uint32_t transEndian(uint32_t a) {
+  return a >> 24 | (a >> 8 & 0x0000ff00) | (a << 8 & 0x00ff0000) | (a << 24 & 0xff000000);
+}
 
 int main(int argc, char *argv[]) {
   // 0a.
@@ -146,7 +149,7 @@ int main(int argc, char *argv[]) {
         .len = 24,        // small endian
         .if_index = i,    // small endian
         .nexthop = 0,      // big endian, means direct
-        .metric = 1
+        .metric = transEndian(1)       //big endian
     };
     update(true, entry);
   }
@@ -233,14 +236,15 @@ int main(int argc, char *argv[]) {
           // 3a.3 request, ref. RFC2453 3.9.1
           // only need to respond to whole table requests in the lab
           //返回lab中的所有表请求
-          if (rip.numEntries != 1 || rip.entries[0].metric != 16) continue;
+          if (rip.numEntries != 1 || rip.entries[0].metric != transEndian(16)) continue;
           RipPacket resp;
           findRoute(&resp, src_addr);
           resp.command = 2;
           // RIP
           uint32_t rip_len = assemble(&resp, &output[20 + 8]);
           genUdphead(&output[20], rip_len);
-          genIphead(output + 0, rip_len + 28, 1, 17, dst_addr, src_addr);
+          
+          genIphead(output + 0, rip_len + 28, 1, 17, addrs[if_index], src_addr);
           // checksum calculation for ip and udp
           // if you don't want to calculate udp checksum, set it to zero
           // send it back
@@ -254,7 +258,7 @@ int main(int argc, char *argv[]) {
           resp.command = 2;
           uint32_t t_nexthop, t_if_index, t_metric;
           for (int i = 0; i < rip.numEntries; i++) {
-              rip.entries[i].metric += 1;
+              rip.entries[i].metric = transEndian(transEndian(rip.entries[i].metric) + 1);
               rip.entries[i].nexthop = src_addr;
               RoutingTableEntry entry = {
                 .addr = rip.entries[i].addr, // big endian
@@ -264,13 +268,13 @@ int main(int argc, char *argv[]) {
                 .metric = rip.entries[i].metric
               };
               if (query2(rip.entries[i].addr, &t_nexthop, &t_if_index, &t_metric)) {    
-                if (rip.entries[i].metric > 16) {
+                if (transEndian(rip.entries[i].metric) > 16) {
                   update(false, entry);
                   resp.entries[cnt] = rip.entries[i];
-                  resp.entries[cnt].metric = 16;
+                  resp.entries[cnt].metric = transEndian(16);
                   cnt++;
                 }
-                else if (t_metric > rip.entries[i].metric){
+                else if (transEndian(t_metric) > transEndian(rip.entries[i].metric)){
                   update(true, entry);
                   resp.entries[cnt] = rip.entries[i];
                   cnt++;
